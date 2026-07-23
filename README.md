@@ -1,13 +1,31 @@
 # Chemical Treatment Optimization
 
-ML-based oilfield chemical treatment analysis and dosage optimization system.
+ML-based oilfield chemical treatment analysis and dosage optimization system using Bayesian methods and hyperparameter tuning.
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Bayesian Inference | **PyMC3** - probabilistic programming |
+| Hyperparameter Tuning | **Optuna** - Bayesian optimization |
+| Data Processing | pandas, numpy, joblib |
+| Web Server | **FastAPI** + uvicorn |
+| Monitoring | prometheus-fastapi-instrumentator |
+| Validation | pydantic v2 |
+| Visualization | matplotlib, seaborn |
+
+### Key Libraries
+- PyMC3 - Bayesian statistical modeling
+- Optuna - Automatic hyperparameter optimization
+- FastAPI - Modern async web framework
+- pandas / numpy - Data processing
 
 ## Overview
 
 This project uses machine learning to optimize oilfield chemical treatments including scale inhibitors, corrosion inhibitors, demulsifiers, and paraffin inhibitors. It provides:
 
-- **Dosage Optimizer**: GradientBoostingRegressor that predicts optimal chemical dosage (ppm) based on operating conditions
-- **Effectiveness Predictor**: RandomForestClassifier that classifies treatment effectiveness (poor/fair/good/excellent)
+- **Dosage Optimizer**: PyMC3 Bayesian model that predicts optimal chemical dosage (ppm) based on operating conditions
+- **Effectiveness Predictor**: Optuna-tuned classifier that classifies treatment effectiveness (poor/fair/good/excellent)
 
 ## Project Structure
 
@@ -95,15 +113,6 @@ Server starts on http://localhost:5009
 ```bash
 python test_api.py
 ```
-
-## Features
-
-- Synthetic data generation with realistic oilfield chemistry relationships
-- GradientBoostingRegressor for continuous dosage optimization
-- RandomForestClassifier for effectiveness category prediction
-- Flask REST API with JSON endpoints
-- Dark-theme web dashboard with Chart.js visualization
-- GitHub Actions CI pipeline
 
 ## Treatment Types
 
