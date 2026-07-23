@@ -11,6 +11,7 @@ from chemical_treatment.models.effectiveness_predictor import train as train_eff
 def main():
     print("=" * 60)
     print("  Chemical Treatment Optimization - Training Pipeline")
+    print("  Framework: PyMC (Bayesian) + Optuna")
     print("=" * 60)
 
     print("\n[1/3] Generating synthetic dataset (2000 samples)...")
@@ -22,13 +23,13 @@ def main():
     print(f"  Shape: {df.shape}")
     print(f"  Treatment types: {df['treatment_type'].unique().tolist()}")
 
-    print("\n[2/3] Training Dosage Optimizer (GradientBoostingRegressor)...")
+    print("\n[2/3] Training Dosage Optimizer (PyMC Bayesian Regression + Optuna)...")
     dosage_results = train_dosage(df)
     print(f"  MAE:  {dosage_results['mae']}")
     print(f"  R2:   {dosage_results['r2']}")
     print(f"  Model saved to: {dosage_results['model_path']}")
 
-    print("\n[3/3] Training Effectiveness Predictor (RandomForestClassifier)...")
+    print("\n[3/3] Training Effectiveness Predictor (PyMC Bayesian Classification + Optuna)...")
     eff_results = train_effectiveness(df)
     print(f"  Accuracy: {eff_results['accuracy']}")
     report = eff_results["report"]

@@ -1,4 +1,4 @@
-"""FastAPI for chemical treatment optimization."""
+"""FastAPI for chemical treatment optimization using PyMC Bayesian inference + Optuna."""
 
 import os
 import sys
@@ -16,8 +16,8 @@ from chemical_treatment.data_generator import TREATMENT_TYPES
 
 app = FastAPI(
     title="Chemical Treatment Optimization",
-    description="Chemical dosage optimization and effectiveness prediction",
-    version="1.0.0",
+    description="Chemical dosage optimization and effectiveness prediction (PyMC Bayesian + Optuna)",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -45,7 +45,10 @@ def get_models():
 
 @app.on_event("startup")
 async def load_models():
-    get_models()
+    try:
+        get_models()
+    except Exception as e:
+        print(f"[WARN] Error loading models: {e}")
 
 
 class OptimizeRequest(BaseModel):
@@ -78,7 +81,11 @@ class PredictResponse(BaseModel):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "healthy", "service": "chemical-treatment-optimization"}
+    return {
+        "status": "healthy",
+        "service": "chemical-treatment-optimization",
+        "framework": "pymc/optuna",
+    }
 
 
 @app.get("/api/models")
@@ -86,14 +93,16 @@ async def models_info():
     get_models()
     return {
         "dosage_optimizer": {
-            "type": "GradientBoostingRegressor",
+            "type": "PyMC Bayesian Regression + Optuna tuning",
             "features": ["treatment_type", "temperature_c", "ph", "water_hardness"],
             "target": "dosage_ppm",
+            "framework": "pymc/optuna",
         },
         "effectiveness_predictor": {
-            "type": "RandomForestClassifier",
+            "type": "PyMC Bayesian Classification + Optuna tuning",
             "features": ["dosage_ppm", "temperature_c", "ph", "water_hardness", "treatment_type"],
             "target": "effectiveness_category (poor/fair/good/excellent)",
+            "framework": "pymc/optuna",
         },
         "treatment_types": TREATMENT_TYPES,
     }
@@ -152,4 +161,3 @@ async def predict(request: PredictRequest):
             "water_hardness": features["water_hardness"],
         },
     )
-
