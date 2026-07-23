@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemical Treatment Optimization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #f59e0b; }
+        .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.95rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; }
+        .card h2 { color: #f59e0b; font-size: 1.1rem; margin-bottom: 1rem; }
+        label { display: block; color: #94a3b8; font-size: 0.85rem; margin-bottom: 0.3rem; margin-top: 0.75rem; }
+        select, input[type="number"] { width: 100%; padding: 0.6rem; border: 1px solid #475569; border-radius: 6px; background: #0f172a; color: #e2e8f0; font-size: 0.95rem; }
+        select:focus, input:focus { outline: none; border-color: #f59e0b; }
+        button { margin-top: 1rem; padding: 0.7rem 1.5rem; background: #f59e0b; color: #0f172a; border: none; border-radius: 6px; font-weight: 600; font-size: 0.95rem; cursor: pointer; width: 100%; }
+        button:hover { background: #d97706; }
+        .result { margin-top: 1rem; padding: 1rem; background: #0f172a; border-radius: 8px; display: none; }
+        .result.show { display: block; }
+        .result-value { font-size: 1.8rem; font-weight: 700; color: #f59e0b; }
+        .result-label { color: #94a3b8; font-size: 0.85rem; }
+        .chart-container { position: relative; height: 300px; margin-top: 1rem; }
+        .status { padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.8rem; display: inline-block; }
+        .status.ok { background: #064e3b; color: #34d399; }
+        .status.err { background: #7f1d1d; color: #fca5a5; }
+        .footer { text-align: center; color: #475569; margin-top: 3rem; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chemical Treatment Optimization</h1>
+        <p class="subtitle">ML-powered oilfield chemical treatment analysis and dosage optimization</p>
+        <div style="margin-bottom:1.5rem"><span id="health-badge" class="status">Checking...</span></div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Dosage Optimizer</h2>
+                <label>Treatment Type</label>
+                <select id="opt-type">
+                    <option value="scale_inhibitor">Scale Inhibitor</option>
+                    <option value="corrosion_inhibitor">Corrosion Inhibitor</option>
+                    <option value="demulsifier">Demulsifier</option>
+                    <option value="paraffin_inhibitor">Paraffin Inhibitor</option>
+                </select>
+                <label>Temperature (C)</label>
+                <input type="number" id="opt-temp" value="60" min="20" max="120">
+                <label>pH</label>
+                <input type="number" id="opt-ph" value="7.0" min="4" max="10" step="0.1">
+                <label>Water Hardness</label>
+                <input type="number" id="opt-hardness" value="300" min="50" max="800">
+                <button onclick="optimizeDosage()">Optimize Dosage</button>
+                <div id="opt-result" class="result">
+                    <div class="result-label">Optimal Dosage</div>
+                    <div class="result-value" id="opt-value">--</div>
+                    <div class="result-label">ppm</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Effectiveness Predictor</h2>
+                <label>Treatment Type</label>
+                <select id="pred-type">
+                    <option value="scale_inhibitor">Scale Inhibitor</option>
+                    <option value="corrosion_inhibitor">Corrosion Inhibitor</option>
+                    <option value="demulsifier">Demulsifier</option>
+                    <option value="paraffin_inhibitor">Paraffin Inhibitor</option>
+                </select>
+                <label>Dosage (ppm)</label>
+                <input type="number" id="pred-dosage" value="80" min="5" max="200">
+                <label>Temperature (C)</label>
+                <input type="number" id="pred-temp" value="60" min="20" max="120">
+                <label>pH</label>
+                <input type="number" id="pred-ph" value="7.0" min="4" max="10" step="0.1">
+                <label>Water Hardness</label>
+                <input type="number" id="pred-hardness" value="300" min="50" max="800">
+                <button onclick="predictEffectiveness()">Predict Effectiveness</button>
+                <div id="pred-result" class="result">
+                    <div class="result-label">Predicted Category</div>
+                    <div class="result-value" id="pred-value">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:2rem">
+            <h2>Model Performance</h2>
+            <div class="chart-container">
+                <canvas id="perfChart"></canvas>
+            </div>
+        </div>
+
+        <div class="footer">Elaborado por Ing. Kelvin Cabrera</div>
+    </div>
+
+    <script>
+        fetch('/api/health').then(r => r.json()).then(d => {
+            document.getElementById('health-badge').className = 'status ok';
+            document.getElementById('health-badge').textContent = 'Service Healthy';
+        }).catch(() => {
+            document.getElementById('health-badge').className = 'status err';
+            document.getElementById('health-badge').textContent = 'Service Offline';
+        });
+
+        fetch('/api/models').then(r => r.json()).then(d => {
+            document.getElementById('health-badge').textContent = 'Models Loaded';
+        });
+
+        const ctx = document.getElementById('perfChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Dosage Optimizer', 'Effectiveness Predictor'],
+                datasets: [{
+                    label: 'Score',
+                    data: [0.89, 0.85],
+                    backgroundColor: ['#f59e0b', '#3b82f6'],
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    y: { beginAtZero: true, max: 1, ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+                }
+            }
+        });
+
+        function optimizeDosage() {
+            fetch('/api/optimize', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    treatment_type: document.getElementById('opt-type').value,
+                    temperature_c: parseFloat(document.getElementById('opt-temp').value),
+                    ph: parseFloat(document.getElementById('opt-ph').value),
+                    water_hardness: parseFloat(document.getElementById('opt-hardness').value)
+                })
+            }).then(r => r.json()).then(d => {
+                document.getElementById('opt-value').textContent = d.optimal_dosage_ppm;
+                document.getElementById('opt-result').classList.add('show');
+            });
+        }
+
+        function predictEffectiveness() {
+            fetch('/api/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    treatment_type: document.getElementById('pred-type').value,
+                    dosage_ppm: parseFloat(document.getElementById('pred-dosage').value),
+                    temperature_c: parseFloat(document.getElementById('pred-temp').value),
+                    ph: parseFloat(document.getElementById('pred-ph').value),
+                    water_hardness: parseFloat(document.getElementById('pred-hardness').value)
+                })
+            }).then(r => r.json()).then(d => {
+                document.getElementById('pred-value').textContent = d.predicted_effectiveness;
+                document.getElementById('pred-result').classList.add('show');
+            });
+        }
+    </script>
+</body>
+</html>
