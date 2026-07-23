@@ -1,106 +1,116 @@
+"""API integration tests for Chemical Treatment Optimization FastAPI app."""
+
 import sys
-import os
-import json
-import time
-import urllib.request
-import urllib.error
+from fastapi.testclient import TestClient
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ".")
+from app import app
 
-BASE = "http://127.0.0.1:5009"
+client = TestClient(app)
+
 passed = 0
 failed = 0
 
 
-def test(name, method, path, data=None, expect_status=200):
+def test(name, fn):
     global passed, failed
-    url = BASE + path
-    body = json.dumps(data).encode() if data else None
-    req = urllib.request.Request(url, data=body, method=method)
-    if data:
-        req.add_header("Content-Type", "application/json")
     try:
-        resp = urllib.request.urlopen(req)
-        status = resp.getcode()
-        raw = resp.read().decode()
-        try:
-            body = json.loads(raw)
-        except (json.JSONDecodeError, ValueError):
-            body = {"html": True}
-    except urllib.error.HTTPError as e:
-        status = e.code
-        raw = e.read().decode()
-        body = json.loads(raw) if raw else {}
-    except Exception as e:
-        print(f"  FAIL {name}: {e}")
-        failed += 1
-        return
-
-    if status == expect_status:
+        fn()
         passed += 1
-        print(f"  PASS {name}")
-    else:
+        print(f"  PASS  {name}")
+    except Exception as e:
         failed += 1
-        print(f"  FAIL {name}: expected {expect_status}, got {status}")
-    return body
+        print(f"  FAIL  {name}: {e}")
 
 
-def main():
-    global passed, failed
-    print("=" * 50)
-    print("  API Test Suite")
-    print("=" * 50)
+def test_health():
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "healthy"
 
-    print("\n[Health]")
-    test("GET /api/health", "GET", "/api/health")
 
-    print("\n[Models Info]")
-    r = test("GET /api/models", "GET", "/api/models")
-    if r:
-        assert "dosage_optimizer" in r
-        assert "effectiveness_predictor" in r
+def test_models():
+    r = client.get("/api/models")
+    assert r.status_code == 200
+    data = r.json()
+    assert "dosage_optimizer" in data
+    assert "effectiveness_predictor" in data
 
-    print("\n[Dosage Optimizer]")
-    test("POST /api/optimize (valid)", "POST", "/api/optimize", {
+
+def test_optimize_valid():
+    r = client.post("/api/optimize", json={
         "treatment_type": "scale_inhibitor",
         "temperature_c": 65,
         "ph": 7.2,
         "water_hardness": 350,
     })
-    test("POST /api/optimize (missing field)", "POST", "/api/optimize", {
+    assert r.status_code == 200
+    assert "optimal_dosage_ppm" in r.json()
+
+
+def test_optimize_missing_field():
+    r = client.post("/api/optimize", json={
         "treatment_type": "corrosion_inhibitor"
-    }, expect_status=400)
-    test("POST /api/optimize (invalid type)", "POST", "/api/optimize", {
+    })
+    assert r.status_code == 422
+
+
+def test_optimize_invalid_type():
+    r = client.post("/api/optimize", json={
         "treatment_type": "invalid_type",
         "temperature_c": 60,
         "ph": 7,
         "water_hardness": 300,
-    }, expect_status=400)
+    })
+    assert r.status_code == 400
 
-    print("\n[Effectiveness Predictor]")
-    r = test("POST /api/predict (valid)", "POST", "/api/predict", {
+
+def test_predict_valid():
+    r = client.post("/api/predict", json={
         "treatment_type": "corrosion_inhibitor",
         "dosage_ppm": 100,
         "temperature_c": 50,
         "ph": 6.5,
         "water_hardness": 200,
     })
-    if r:
-        assert "predicted_effectiveness" in r
-        assert r["predicted_effectiveness"] in ["poor", "fair", "good", "excellent"]
-    test("POST /api/predict (missing field)", "POST", "/api/predict", {
-        "treatment_type": "demulsifier"
-    }, expect_status=400)
+    assert r.status_code == 200
+    data = r.json()
+    assert "predicted_effectiveness" in data
+    assert data["predicted_effectiveness"] in ["poor", "fair", "good", "excellent"]
 
-    print("\n[Root]")
-    test("GET /", "GET", "/")
+
+def test_predict_missing_field():
+    r = client.post("/api/predict", json={
+        "treatment_type": "demulsifier"
+    })
+    assert r.status_code == 422
+
+
+def main():
+    print("=" * 50)
+    print("  API Test Suite")
+    print("=" * 50)
+
+    print("\n[Health]")
+    test("GET /api/health", test_health)
+
+    print("\n[Models Info]")
+    test("GET /api/models", test_models)
+
+    print("\n[Dosage Optimizer]")
+    test("POST /api/optimize (valid)", test_optimize_valid)
+    test("POST /api/optimize (missing field)", test_optimize_missing_field)
+    test("POST /api/optimize (invalid type)", test_optimize_invalid_type)
+
+    print("\n[Effectiveness Predictor]")
+    test("POST /api/predict (valid)", test_predict_valid)
+    test("POST /api/predict (missing field)", test_predict_missing_field)
 
     print("\n" + "=" * 50)
     print(f"  Results: {passed} passed, {failed} failed")
     print("=" * 50)
-    return failed == 0
+    sys.exit(0 if failed == 0 else 1)
 
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()

@@ -1,14 +1,31 @@
+"""FastAPI for chemical treatment optimization."""
+
 import os
 import sys
+from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, request, jsonify, render_template
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from chemical_treatment.models.dosage_optimizer import load_model as load_dosage_model, predict as predict_dosage
 from chemical_treatment.models.effectiveness_predictor import load_model as load_effectiveness_model, predict as predict_effectiveness
 from chemical_treatment.data_generator import TREATMENT_TYPES
 
-app = Flask(__name__)
+app = FastAPI(
+    title="Chemical Treatment Optimization",
+    description="Chemical dosage optimization and effectiveness prediction",
+    version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 dosage_model = None
 effectiveness_model = None
@@ -23,20 +40,48 @@ def get_models():
     return dosage_model, effectiveness_model
 
 
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-@app.route("/api/health", methods=["GET"])
-def health():
-    return jsonify({"status": "healthy", "service": "chemical-treatment-optimization"})
-
-
-@app.route("/api/models", methods=["GET"])
-def models_info():
+@app.on_event("startup")
+async def load_models():
     get_models()
-    return jsonify({
+
+
+class OptimizeRequest(BaseModel):
+    treatment_type: str
+    temperature_c: float
+    ph: float
+    water_hardness: float
+
+
+class OptimizeResponse(BaseModel):
+    optimal_dosage_ppm: float
+    treatment_type: str
+    conditions: dict
+
+
+class PredictRequest(BaseModel):
+    treatment_type: str
+    dosage_ppm: float
+    temperature_c: float
+    ph: float
+    water_hardness: float
+
+
+class PredictResponse(BaseModel):
+    predicted_effectiveness: str
+    treatment_type: str
+    dosage_ppm: float
+    conditions: dict
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "healthy", "service": "chemical-treatment-optimization"}
+
+
+@app.get("/api/models")
+async def models_info():
+    get_models()
+    return {
         "dosage_optimizer": {
             "type": "GradientBoostingRegressor",
             "features": ["treatment_type", "temperature_c", "ph", "water_hardness"],
@@ -48,93 +93,59 @@ def models_info():
             "target": "effectiveness_category (poor/fair/good/excellent)",
         },
         "treatment_types": TREATMENT_TYPES,
-    })
+    }
 
 
-@app.route("/api/optimize", methods=["POST"])
-def optimize():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No JSON data provided"}), 400
-
-    required = ["treatment_type", "temperature_c", "ph", "water_hardness"]
-    missing = [f for f in required if f not in data]
-    if missing:
-        return jsonify({"error": f"Missing fields: {missing}"}), 400
-
-    if data["treatment_type"] not in TREATMENT_TYPES:
-        return jsonify({"error": f"Invalid treatment_type. Must be one of: {TREATMENT_TYPES}"}), 400
-
+@app.post("/api/optimize", response_model=OptimizeResponse)
+async def optimize(request: OptimizeRequest):
+    if request.treatment_type not in TREATMENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid treatment_type. Must be one of: {TREATMENT_TYPES}",
+        )
     dm, _ = get_models()
     features = {
         "dosage_ppm": 0,
-        "temperature_c": float(data["temperature_c"]),
-        "ph": float(data["ph"]),
-        "water_hardness": float(data["water_hardness"]),
-        "treatment_type": data["treatment_type"],
+        "temperature_c": float(request.temperature_c),
+        "ph": float(request.ph),
+        "water_hardness": float(request.water_hardness),
+        "treatment_type": request.treatment_type,
     }
     optimal_dosage = predict_dosage(dm, features)
-
-    return jsonify({
-        "optimal_dosage_ppm": optimal_dosage,
-        "treatment_type": data["treatment_type"],
-        "conditions": {
+    return OptimizeResponse(
+        optimal_dosage_ppm=optimal_dosage,
+        treatment_type=request.treatment_type,
+        conditions={
             "temperature_c": features["temperature_c"],
             "ph": features["ph"],
             "water_hardness": features["water_hardness"],
         },
-    })
+    )
 
 
-@app.route("/api/predict", methods=["POST"])
-def predict():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No JSON data provided"}), 400
-
-    required = ["treatment_type", "dosage_ppm", "temperature_c", "ph", "water_hardness"]
-    missing = [f for f in required if f not in data]
-    if missing:
-        return jsonify({"error": f"Missing fields: {missing}"}), 400
-
-    if data["treatment_type"] not in TREATMENT_TYPES:
-        return jsonify({"error": f"Invalid treatment_type. Must be one of: {TREATMENT_TYPES}"}), 400
-
+@app.post("/api/predict", response_model=PredictResponse)
+async def predict(request: PredictRequest):
+    if request.treatment_type not in TREATMENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid treatment_type. Must be one of: {TREATMENT_TYPES}",
+        )
     _, em = get_models()
     features = {
-        "dosage_ppm": float(data["dosage_ppm"]),
-        "temperature_c": float(data["temperature_c"]),
-        "ph": float(data["ph"]),
-        "water_hardness": float(data["water_hardness"]),
-        "treatment_type": data["treatment_type"],
+        "dosage_ppm": float(request.dosage_ppm),
+        "temperature_c": float(request.temperature_c),
+        "ph": float(request.ph),
+        "water_hardness": float(request.water_hardness),
+        "treatment_type": request.treatment_type,
     }
     effectiveness = predict_effectiveness(em, features)
-
-    return jsonify({
-        "predicted_effectiveness": effectiveness,
-        "treatment_type": data["treatment_type"],
-        "dosage_ppm": features["dosage_ppm"],
-        "conditions": {
+    return PredictResponse(
+        predicted_effectiveness=effectiveness,
+        treatment_type=request.treatment_type,
+        dosage_ppm=features["dosage_ppm"],
+        conditions={
             "temperature_c": features["temperature_c"],
             "ph": features["ph"],
             "water_hardness": features["water_hardness"],
         },
-    })
-
-
-@app.route("/api/docs", methods=["GET"])
-def api_docs():
-    return jsonify({
-        "openapi": "3.0.0",
-        "info": {"title": "Chemical Treatment Optimization", "version": "1.0.0"},
-        "paths": {
-            "/api/health": {"get": {"summary": "Health check"}},
-            "/api/models": {"get": {"summary": "Model info"}},
-            "/api/optimize": {"post": {"summary": "Optimize chemical treatment dosage"}},
-            "/api/predict": {"post": {"summary": "Predict treatment effectiveness"}},
-        }
-    })
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5009, debug=False)
+    )
