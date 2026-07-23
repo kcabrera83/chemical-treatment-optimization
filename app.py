@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 from chemical_treatment.models.dosage_optimizer import load_model as load_dosage_model, predict as predict_dosage
 from chemical_treatment.models.effectiveness_predictor import load_model as load_effectiveness_model, predict as predict_effectiveness
@@ -26,6 +27,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+Instrumentator().instrument(app).expose(app)
 
 dosage_model = None
 effectiveness_model = None
@@ -149,3 +152,4 @@ async def predict(request: PredictRequest):
             "water_hardness": features["water_hardness"],
         },
     )
+
