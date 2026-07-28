@@ -1,5 +1,3 @@
-"""FastAPI for chemical treatment optimization using PyMC Bayesian inference + Optuna."""
-
 import os
 import sys
 from typing import List, Optional
@@ -17,7 +15,7 @@ from chemical_treatment.data_generator import TREATMENT_TYPES
 app = FastAPI(
     title="Chemical Treatment Optimization",
     description="Chemical dosage optimization and effectiveness prediction (PyMC Bayesian + Optuna)",
-    version="2.0.0",
+    version="0.1",
 )
 
 app.add_middleware(

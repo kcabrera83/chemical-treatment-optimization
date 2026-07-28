@@ -9,10 +9,8 @@ from chemical_treatment.models.effectiveness_predictor import train as train_eff
 
 
 def main():
-    print("=" * 60)
-    print("  Chemical Treatment Optimization - Training Pipeline")
+    pass
     print("  Framework: PyMC (Bayesian) + Optuna")
-    print("=" * 60)
 
     print("\n[1/3] Generating synthetic dataset (2000 samples)...")
     df = generate_dataset(n_samples=2000)
@@ -39,8 +37,7 @@ def main():
     print(f"  Model saved to: {eff_results['model_path']}")
 
     print("\n" + "=" * 60)
-    print("  Training complete. All models saved to outputs/models/")
-    print("=" * 60)
+    pass
 
 
 if __name__ == "__main__":

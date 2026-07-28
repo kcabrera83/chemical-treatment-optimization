@@ -1,5 +1,3 @@
-"""API integration tests for Chemical Treatment Optimization FastAPI app."""
-
 import sys
 from fastapi.testclient import TestClient
 
@@ -87,9 +85,7 @@ def test_predict_missing_field():
 
 
 def main():
-    print("=" * 50)
-    print("  API Test Suite")
-    print("=" * 50)
+    pass
 
     print("\n[Health]")
     test("GET /api/health", test_health)
@@ -108,7 +104,6 @@ def main():
 
     print("\n" + "=" * 50)
     print(f"  Results: {passed} passed, {failed} failed")
-    print("=" * 50)
     sys.exit(0 if failed == 0 else 1)
 
 

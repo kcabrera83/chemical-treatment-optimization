@@ -49,7 +49,7 @@ def train(df: pd.DataFrame) -> dict:
     X = preprocessor.fit_transform(X_raw)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y_enc, test_size=0.2, random_state=42, stratify=y_enc
+        X, y_enc, test_size=0.2, random_state=2024, stratify=y_enc
     )
 
     n_classes = len(le.classes_)
