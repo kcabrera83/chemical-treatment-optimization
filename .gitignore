@@ -7,6 +7,11 @@ build/
 *.egg
 .env
 *.pkl
-outputs/
+outputs/*
 .vscode/
 .idea/
+
+# Streamlit Cloud model files
+!outputs/models/
+!outputs/models/*.pkl
+
