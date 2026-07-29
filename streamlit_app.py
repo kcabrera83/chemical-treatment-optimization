@@ -1,33 +1,46 @@
-import streamlit as st
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+import streamlit as st, joblib, numpy as np, matplotlib.pyplot as plt
+from pathlib import Path; import sys; sys.path.insert(0, str(Path(__file__).parent))
 
-st.set_page_config(page_title="Chemical Treatment Optimization", layout="wide")
-st.title("Chemical Treatment Optimization")
-st.markdown("Optimize chemical dosage for well treatment.")
+st.set_page_config(page_title="Chemical Treatment", layout="wide")
+st.title("Chemical Treatment")
 
-import joblib, numpy as np
-d = Path(__file__).parent / 'outputs' / 'models'
-models = {'dosage': joblib.load(d / 'dosage_optimizer.pkl'), 'effectiveness': joblib.load(d / 'effectiveness_predictor.pkl')}
+p = Path(__file__).parent / 'outputs' / 'models'
+models = {'dosage': joblib.load(p / 'dosage_optimizer.pkl'), 'effectiveness': joblib.load(p / 'effectiveness_predictor.pkl')}
 
-st.sidebar.header("Input Parameters")
-treatment_type = st.sidebar.selectbox('Treatment Type', ['scale_inhibitor','corrosion_inhibitor','demulsifier','paraffin_inhibitor'])
-temperature_c = st.sidebar.slider('Temperature C', 20, 150, 85)
-ph = st.sidebar.slider('Ph', 3, 12, 7)
-water_hardness = st.sidebar.slider('Water Hardness', 50, 500, 275)
+tab1, tab2, tab3 = st.tabs(['Predict', 'Charts', 'Info'])
 
-if st.sidebar.button("Run"):
-    try:
-        x = np.array([[treatment_type, temperature_c, ph, water_hardness]])
-        cols = st.columns(2)
-        for i, (k, m) in enumerate(models.items()):
+with tab1:
+    st.subheader('Inputs')
+    c = st.columns(2)
+    treatment = c[0].selectbox('Treatment', ['scale','corrosion','demulsifier','paraffin'])
+    temp = c[1].slider('Temp', 20, 150, 85)
+    ph = c[0].slider('Ph', 3, 12, 7)
+    hardness = c[1].slider('Hardness', 50, 500, 275)
+    if st.button('Run', type='primary'):
+        x = np.array([[treatment, temp, ph, hardness]])
+        res = {}
+        m = models['dosage']
+        if isinstance(m, dict):
             X = m['scaler'].transform(x)
             p = m['model'].predict(X)
-            if 'label_encoder' in m:
-                val = m['label_encoder'].inverse_transform(p)[0]
-            else:
-                val = f'{p[0]:.2f}'
-            cols[i].metric(k.title(), val)
-    except Exception as e:
-        st.error(str(e))
+            res['dosage'] = m['label_encoder'].inverse_transform(p)[0] if 'label_encoder' in m else float(p[0])
+        else:
+            res['dosage'] = float(m.predict(x)[0])
+        m = models['effectiveness']
+        if isinstance(m, dict):
+            X = m['scaler'].transform(x)
+            p = m['model'].predict(X)
+            res['effectiveness'] = m['label_encoder'].inverse_transform(p)[0] if 'label_encoder' in m else float(p[0])
+        else:
+            res['effectiveness'] = float(m.predict(x)[0])
+        st.divider()
+        rc = st.columns(len(res))
+        for i, (k, v) in enumerate(res.items()):
+            rc[i].metric(k.replace('_',' ').title(), str(v) if isinstance(v,str) else f'{v:.2f}')
+
+with tab2:
+    st.info('Charts update after prediction')
+
+with tab3:
+    st.markdown('Bayesian optimization of chemical dosage')
+    st.caption('Built with scikit-learn + Streamlit')
